@@ -1,0 +1,760 @@
+<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bytebeat & GoBeat Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        input[type="range"] {
+            accent-color: #6366f1;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #020617;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-full flex flex-col font-sans antialiased overflow-x-hidden selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="border-b border-slate-900 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <i class="fa-solid fa-headphones-simple text-white text-sm"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-bold tracking-tight text-slate-100 flex items-center gap-2">
+                    Bytebeat & GoBeat Studio <span class="text-[10px] bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded-full font-mono">v2.6 Dollchan Engine</span>
+                </h1>
+                <p class="text-[10px] text-slate-400 font-mono">原生位元音樂與多段 GoBeat 編曲工作站</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleHelpModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1.5 font-mono">
+                <i class="fa-solid fa-circle-question"></i>
+                <span class="hidden sm:inline">GoBeat 說明</span>
+            </button>
+            <div class="flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button id="btnSingle" onclick="toggleMode('single')" class="px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">單段模式</button>
+                <button id="btnGobeat" onclick="toggleMode('gobeat')" class="px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow transition">GoBeat 序列</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6 overflow-y-auto">
+
+        <!-- Controls Toolbar -->
+        <section class="bg-slate-900/80 backdrop-blur border border-slate-800/80 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+            <div class="flex flex-wrap items-center gap-3">
+                <button id="playBtn" onclick="togglePlay()" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2">
+                    <i id="playIcon" class="fa-solid fa-play text-xs"></i>
+                    <span id="playText">開始播放 (Play)</span>
+                </button>
+                <button onclick="resetAudioTime()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>重置時間</span>
+                </button>
+                <button onclick="exportWav()" class="px-3.5 py-2.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/60 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-download"></i>
+                    <span>匯出 WAV</span>
+                </button>
+                <div class="flex items-center space-x-2 px-3 py-1.5 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono">
+                    <label class="flex items-center space-x-1.5 cursor-pointer">
+                        <input type="checkbox" id="agcToggle" class="accent-indigo-500 rounded">
+                        <span class="text-slate-300">啟用 AGC (預設關閉)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Master Volume & Sample Rate -->
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="flex items-center space-x-2 text-xs font-mono text-slate-300">
+                    <i class="fa-solid fa-volume-high text-indigo-400"></i>
+                    <span>主音量:</span>
+                    <input type="range" id="volumeSlider" min="0" max="100" value="20" oninput="updateVolume(this.value)" class="w-24 sm:w-28 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+                    <span id="volumeVal" class="w-8 text-right">20%</span>
+                </div>
+                <div class="hidden sm:flex items-center space-x-2 text-xs font-mono text-slate-400 border-l border-slate-800 pl-4">
+                    <span>取樣率:</span>
+                    <select id="sampleRateSelect" onchange="changeSampleRate(this.value)" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200">
+                        <option value="8000">8 kHz</option>
+                        <option value="11025">11.025 kHz</option>
+                        <option value="16000" selected>16 kHz</option>
+                        <option value="22050">22.05 kHz</option>
+                        <option value="32000">32 kHz</option>
+                        <option value="44100">44.1 kHz</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visualizer & Time display -->
+        <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-lg">
+            <div class="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-wave-square text-indigo-400"></i>
+                    <span>Dollchan 風格位元波形視覺化 | 狀態: <span id="statusText" class="text-emerald-400 font-medium">公式正常</span></span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span>時間 t: <strong id="timeCounter" class="text-indigo-300">0</strong></span>
+                    <span>進度: <strong id="progressCounter" class="text-indigo-300">0.0s</strong></span>
+                </div>
+            </div>
+            <div class="h-36 w-full bg-slate-950 rounded-xl overflow-hidden border border-slate-800/80 relative">
+                <canvas id="visualizerCanvas" class="w-full h-full"></canvas>
+            </div>
+        </section>
+
+        <!-- Single Bytebeat Mode Section -->
+        <section id="singleModeSection" class="hidden space-y-4">
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-xs font-bold font-mono text-indigo-300 flex items-center space-x-2">
+                        <i class="fa-solid fa-code"></i>
+                        <span>單段 Bytebeat 公式編輯器</span>
+                    </h2>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[11px] text-slate-400 font-mono">快速預設:</span>
+                        <button onclick="loadSinglePreset('1')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded text-xs font-mono">經典位元 1</button>
+                        <button onclick="loadSinglePreset('2')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded text-xs font-mono">晶片節奏 2</button>
+                        <button onclick="loadSinglePreset('3')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded text-xs font-mono">機器人 3</button>
+                    </div>
+                </div>
+
+                <!-- Bytebeat 快速按鈕列 -->
+                <div class="flex flex-wrap items-center gap-1.5 bg-slate-950 p-2 rounded-xl border border-slate-800">
+                    <span class="text-[11px] text-slate-400 font-mono mr-1">快捷鍵:</span>
+                    <button onclick="insertAtCursor('t')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">t</button>
+                    <button onclick="insertAtCursor(' >> ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">&gt;&gt;</button>
+                    <button onclick="insertAtCursor(' << ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">&lt;&lt;</button>
+                    <button onclick="insertAtCursor(' & ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">&amp;</button>
+                    <button onclick="insertAtCursor(' | ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">|</button>
+                    <button onclick="insertAtCursor(' ^ ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">^</button>
+                    <button onclick="insertAtCursor(' * ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">*</button>
+                    <button onclick="insertAtCursor(' / ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">/</button>
+                    <button onclick="insertAtCursor(' + ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">+</button>
+                    <button onclick="insertAtCursor(' - ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">-</button>
+                    <button onclick="insertAtCursor(' % ')" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-xs font-mono font-bold">%</button>
+                </div>
+
+                <div>
+                    <textarea id="formulaInput" rows="3" oninput="compileFormula()" class="w-full bg-slate-950 text-slate-200 font-mono text-xs p-3 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 leading-relaxed shadow-inner">t * (t >> 10 & 15) ^ t >> 4</textarea>
+                </div>
+                <div id="formulaError" class="hidden text-rose-400 text-xs font-mono bg-rose-950/40 border border-rose-900/50 p-2.5 rounded-lg flex items-center space-x-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span id="errorMsg">語法錯誤</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- GoBeat Mode Section -->
+        <section id="gobeatModeSection" class="space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-xl">
+                <div>
+                    <h2 class="text-xs font-bold text-slate-100 flex items-center space-x-2 font-mono">
+                        <i class="fa-solid fa-layer-group text-indigo-400"></i>
+                        <span>GoBeat 多段序列排程器 (支援原生 t、音調、音速與圓滑音)</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">完全對齊 Dollchan 8-bit 位元運算與序列循環</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="loadGoBeatStructurePreset()" class="px-3 py-1.5 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 rounded-xl text-xs border border-indigo-800 transition font-mono flex items-center space-x-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>載入標準循環排版</span>
+                    </button>
+                    <button onclick="addGoBeatPart()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs transition font-mono flex items-center space-x-1.5 shadow">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>新增區段</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="gobeatPartsList" class="space-y-3">
+                <!-- Dynamic parts injected here -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Help Modal (GoBeat Guide) -->
+    <div id="helpModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4 text-slate-300 text-xs shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-sm font-bold text-indigo-400 flex items-center space-x-2">
+                    <i class="fa-solid fa-book"></i>
+                    <span>GoBeat 說明與 Dollchan 風格指南</span>
+                </h3>
+                <button onclick="toggleHelpModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
+            </div>
+            <div class="space-y-3 font-mono leading-relaxed text-slate-300">
+                <p><strong class="text-indigo-300">1. Dollchan 位元核心：</strong><br>本應用採用與 dollchan.net/bytebeat 相同的位元運算機制（例如 `t * (t >> 10 & 15) ^ t >> 4`），透過 `t` 變數在時間軸上自動生成 8-bit 聲波。</p>
+                <p><strong class="text-indigo-300">2. 快捷運算符按鈕：</strong><br>您可以直接點擊編輯器上方的 `t`, `>>`, `<<`, `&`, `|`, `^` 等按鈕快速插入運算子，享受流暢的寫歌體驗。</p>
+                <p><strong class="text-indigo-300">3. 區段序列與預設套用：</strong><br>GoBeat 模式可將曲子拆分為多段（如副歌、主歌），每段皆可自由設定時長、音調、音速，並可一鍵套用經典位元預設。</p>
+            </div>
+            <div class="text-right pt-2 border-t border-slate-800">
+                <button onclick="toggleHelpModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold">了解了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Engine -->
+    <script>
+        let currentMode = 'gobeat';
+        let isPlaying = false;
+        let audioCtx = null;
+        let scriptNode = null;
+        let sampleRate = 16000;
+        let volume = 0.2;
+        let time = 0;
+        let compiledFormula = null;
+
+        const canvas = document.getElementById('visualizerCanvas');
+        const canvasCtx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let gobeatParts = [
+            { 
+                name: "副歌 (Chorus)", 
+                duration: 15000, 
+                formula: "t * (t >> 10 & 15) ^ t >> 4", 
+                bgFormula: "t >> 4", 
+                pitch: 0, 
+                speed: 1, 
+                glide: false 
+            },
+            { 
+                name: "主歌 (Verse)", 
+                duration: 15000, 
+                formula: "t * ((t>>12 | t>>8) & 63 & t>>4)", 
+                bgFormula: "t >> 3 & 64", 
+                pitch: 0, 
+                speed: 1, 
+                glide: false 
+            },
+            { 
+                name: "副歌 2 (Chorus 2)", 
+                duration: 15000, 
+                formula: "t * (t>>7 | t>>5) & 31", 
+                bgFormula: "t >> 5", 
+                pitch: 1, 
+                speed: 1, 
+                glide: false 
+            },
+            { 
+                name: "主歌 2 (Verse 2)", 
+                duration: 15000, 
+                formula: "(t>>3) * (t>>8) & 15", 
+                bgFormula: "t >> 6", 
+                pitch: 0, 
+                speed: 1, 
+                glide: false 
+            }
+        ];
+
+        const gobeatPresets = [
+            { name: "🎸 經典位元 (t * (t>>10) ^ t>>4)", formula: "t * (t >> 10 & 15) ^ t >> 4", bg: "t >> 4" },
+            { name: "⚡ 晶片龐克 (t>>12)", formula: "t * ((t>>12 | t>>8) & 63 & t>>4)", bg: "t >> 3 & 64" },
+            { name: "🌀 復古機器人 (t>>5)", formula: "t * (t>>7 | t>>5) & 31", bg: "t >> 5" },
+            { name: "✨ 簡易節奏 (t * (t>>8))", formula: "t * (t >> 8 & t >> 3)", bg: "t >> 4" }
+        ];
+
+        function renderGoBeatParts() {
+            const container = document.getElementById('gobeatPartsList');
+            container.innerHTML = gobeatParts.map((part, idx) => `
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center space-x-2 w-full sm:w-1/3">
+                            <span class="text-xs font-mono text-indigo-400 font-bold">#${idx+1}</span>
+                            <input type="text" value="${part.name}" onchange="updateGoBeatPart(${idx}, 'name', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1 text-xs font-semibold text-indigo-200 focus:outline-none focus:border-indigo-500 w-full">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <select onchange="applyPartPreset(${idx}, this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-indigo-300 font-mono">
+                                <option value="">🎯 套用預設...</option>
+                                ${gobeatPresets.map((p, pIdx) => `<option value="${pIdx}">${p.name}</option>`).join('')}
+                            </select>
+                            <div class="flex items-center space-x-2 text-xs text-slate-400 font-mono">
+                                <span>持續 (ms):</span>
+                                <input type="number" step="1000" value="${part.duration}" onchange="updateGoBeatPart(${idx}, 'duration', parseInt(this.value))" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 w-20 text-slate-200 text-right">
+                            </div>
+                            <button onclick="removeGoBeatPart(${idx})" class="text-rose-400 hover:text-rose-300 px-1 text-xs" title="刪除區段"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- 區段快捷運算符按鈕列 -->
+                    <div class="flex flex-wrap items-center gap-1 bg-slate-900/60 p-1.5 rounded-lg border border-slate-900">
+                        <span class="text-[10px] text-slate-400 font-mono mr-1">插入:</span>
+                        <button onclick="insertIntoPart(${idx}, 'formula', 't')" class="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-[10px] font-mono">t</button>
+                        <button onclick="insertIntoPart(${idx}, 'formula', ' >> ')" class="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-[10px] font-mono">&gt;&gt;</button>
+                        <button onclick="insertIntoPart(${idx}, 'formula', ' << ')" class="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-[10px] font-mono">&lt;&lt;</button>
+                        <button onclick="insertIntoPart(${idx}, 'formula', ' & ')" class="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-[10px] font-mono">&amp;</button>
+                        <button onclick="insertIntoPart(${idx}, 'formula', ' | ')" class="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-[10px] font-mono">|</button>
+                        <button onclick="insertIntoPart(${idx}, 'formula', ' ^ ')" class="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-[10px] font-mono">^</button>
+                        <button onclick="insertIntoPart(${idx}, 'formula', ' * ')" class="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-[10px] font-mono">*</button>
+                        <button onclick="insertIntoPart(${idx}, 'formula', ' + ')" class="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-[10px] font-mono">+</button>
+                        <button onclick="insertIntoPart(${idx}, 'formula', ' - ')" class="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-slate-800 rounded text-[10px] font-mono">-</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-mono block mb-0.5">主旋律公式 (可用 t):</span>
+                            <input type="text" id="partFormula_${idx}" value="${part.formula}" onchange="updateGoBeatPart(${idx}, 'formula', this.value)" class="w-full bg-slate-900 text-slate-300 font-mono text-xs p-2 rounded border border-slate-800 focus:outline-none focus:border-indigo-500" placeholder="主旋律公式...">
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-mono block mb-0.5">背景音公式 (Layer):</span>
+                            <input type="text" id="partBgFormula_${idx}" value="${part.bgFormula || ''}" onchange="updateGoBeatPart(${idx}, 'bgFormula', this.value)" class="w-full bg-slate-900 text-indigo-300 font-mono text-xs p-2 rounded border border-slate-800 focus:outline-none focus:border-indigo-500" placeholder="背景音公式...">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-900 text-xs text-slate-400 font-mono">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-2">
+                                <span>音調:</span>
+                                <select onchange="updateGoBeatPart(${idx}, 'pitch', parseInt(this.value))" class="bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-slate-200 text-xs">
+                                    <option value="-2" ${part.pitch === -2 ? 'selected' : ''}>-2 (低沉)</option>
+                                    <option value="-1" ${part.pitch === -1 ? 'selected' : ''}>-1 (中低)</option>
+                                    <option value="0" ${part.pitch === 0 ? 'selected' : ''}>0 (標準)</option>
+                                    <option value="1" ${part.pitch === 1 ? 'selected' : ''}>+1 (高)</option>
+                                    <option value="2" ${part.pitch === 2 ? 'selected' : ''}>+2 (超高)</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span>音速:</span>
+                                <select onchange="updateGoBeatPart(${idx}, 'speed', parseFloat(this.value))" class="bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-slate-200 text-xs">
+                                    <option value="0.5" ${part.speed === 0.5 ? 'selected' : ''}>0.5x (慢)</option>
+                                    <option value="1" ${part.speed === 1 ? 'selected' : ''}>1.0x (正常)</option>
+                                    <option value="1.5" ${part.speed === 1.5 ? 'selected' : ''}>1.5x (快)</option>
+                                    <option value="2" ${part.speed === 2 ? 'selected' : ''}>2.0x (超快)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label class="flex items-center space-x-1.5 cursor-pointer">
+                                <input type="checkbox" ${part.glide ? 'checked' : ''} onchange="updateGoBeatPart(${idx}, 'glide', this.checked)" class="accent-indigo-500 rounded">
+                                <span class="text-indigo-300 font-semibold">圓滑音 (Glide)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            compileFormula();
+        }
+
+        function applyPartPreset(idx, pIdx) {
+            if (pIdx === "") return;
+            const preset = gobeatPresets[Number(pIdx)];
+            if (preset) {
+                gobeatParts[idx].formula = preset.formula;
+                gobeatParts[idx].bgFormula = preset.bg;
+                renderGoBeatParts();
+            }
+        }
+
+        function insertAtCursor(text) {
+            const input = document.getElementById('formulaInput');
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const val = input.value;
+            input.value = val.substring(0, start) + text + val.substring(end);
+            input.selectionStart = input.selectionEnd = start + text.length;
+            input.focus();
+            compileFormula();
+        }
+
+        function insertIntoPart(idx, field, text) {
+            const inputId = field === 'formula' ? `partFormula_${idx}` : `partBgFormula_${idx}`;
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const start = input.selectionStart || input.value.length;
+            const val = input.value;
+            input.value = val.substring(0, start) + text + val.substring(val.length);
+            gobeatParts[idx][field] = input.value;
+            compileFormula();
+        }
+
+        function updateGoBeatPart(idx, field, val) {
+            gobeatParts[idx][field] = val;
+            compileFormula();
+        }
+
+        function addGoBeatPart() {
+            gobeatParts.push({ name: `新區段 ${gobeatParts.length + 1}`, duration: 15000, formula: "t * (t>>8) & 15", bgFormula: "t >> 4", pitch: 0, speed: 1, glide: false });
+            renderGoBeatParts();
+        }
+
+        function removeGoBeatPart(idx) {
+            if (gobeatParts.length <= 1) return;
+            gobeatParts.splice(idx, 1);
+            renderGoBeatParts();
+        }
+
+        function loadGoBeatStructurePreset() {
+            gobeatParts = [
+                { name: "副歌 (Chorus)", duration: 15000, formula: "t * (t>>8 | t>>9) & 46", bgFormula: "t >> 4", pitch: 0, speed: 1, glide: false },
+                { name: "主歌 (Verse)", duration: 15000, formula: "t * ((t>>12 | t>>8) & 63 & t>>4)", bgFormula: "t >> 3 & 64", pitch: 0, speed: 1, glide: false },
+                { name: "副歌 2 (Chorus 2)", duration: 15000, formula: "t * (t>>7 | t>>5) & 31", bgFormula: "t >> 5", pitch: 1, speed: 1, glide: false },
+                { name: "主歌 2 (Verse 2)", duration: 15000, formula: "(t>>3) * (t>>8) & 15", bgFormula: "t >> 6", pitch: 0, speed: 1, glide: false }
+            ];
+            renderGoBeatParts();
+        }
+
+        function loadSinglePreset(val) {
+            const input = document.getElementById('formulaInput');
+            if (val === '1') input.value = "t * (t>>8 | t>>9) & 46";
+            else if (val === '2') input.value = "t * ((t>>12 | t>>8) & 63 & t>>4)";
+            else if (val === '3') input.value = "t * (t>>7 | t>>5) & 31";
+            compileFormula();
+        }
+
+        function toggleMode(mode) {
+            currentMode = mode;
+            const singleSec = document.getElementById('singleModeSection');
+            const gobeatSec = document.getElementById('gobeatModeSection');
+            const btnSingle = document.getElementById('btnSingle');
+            const btnGobeat = document.getElementById('btnGobeat');
+
+            if (mode === 'single') {
+                singleSec.classList.remove('hidden');
+                gobeatSec.classList.add('hidden');
+                btnSingle.className = "px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow transition";
+                btnGobeat.className = "px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition";
+            } else {
+                singleSec.classList.add('hidden');
+                gobeatSec.classList.remove('hidden');
+                btnGobeat.className = "px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow transition";
+                btnSingle.className = "px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition";
+            }
+            compileFormula();
+        }
+
+        function toggleHelpModal() {
+            document.getElementById('helpModal').classList.toggle('hidden');
+        }
+
+        function compileFormula() {
+            const errBox = document.getElementById('formulaError');
+            const errorMsg = document.getElementById('errorMsg');
+            const statusText = document.getElementById('statusText');
+
+            try {
+                if (currentMode === 'single') {
+                    const code = document.getElementById('formulaInput').value.trim();
+                    // 標準 Dollchan 運算沙箱，直接解析位元與數學公式
+                    const testFunc = new Function('t', `
+                        try {
+                            let res = (${code});
+                            return (typeof res === 'number' && !isNaN(res)) ? res : 0;
+                        } catch(err) {
+                            return 0;
+                        }
+                    `);
+                    testFunc(0);
+                    compiledFormula = testFunc;
+                } else {
+                    let totalDuration = gobeatParts.reduce((acc, p) => acc + (Number(p.duration) || 15000), 0);
+                    if (totalDuration <= 0) totalDuration = 15000;
+
+                    const compiledParts = gobeatParts.map(p => ({
+                        duration: Number(p.duration) || 15000,
+                        func: new Function('t', `
+                            try {
+                                let res = (${p.formula});
+                                return (typeof res === 'number' && !isNaN(res)) ? res : 0;
+                            } catch(err) {
+                                return 0;
+                            }
+                        `),
+                        bgFunc: p.bgFormula && p.bgFormula.trim() ? new Function('t', `
+                            try {
+                                let res = (${p.bgFormula});
+                                return (typeof res === 'number' && !isNaN(res)) ? res : 0;
+                            } catch(err) {
+                                return 0;
+                            }
+                        `) : null,
+                        pitch: Number(p.pitch) || 0,
+                        speed: Number(p.speed) || 1,
+                        glide: !!p.glide
+                    }));
+
+                    compiledParts.forEach(p => {
+                        p.func(0);
+                        if (p.bgFunc) p.bgFunc(0);
+                    });
+
+                    let lastVal = 128;
+
+                    compiledFormula = function(time) {
+                        let localT = time % totalDuration;
+                        let accumulated = 0;
+                        for (let i = 0; i < compiledParts.length; i++) {
+                            accumulated += compiledParts[i].duration;
+                            if (localT < accumulated) {
+                                let partStartT = localT - (accumulated - compiledParts[i].duration);
+                                let pItem = compiledParts[i];
+                                
+                                let adjustedT = Math.floor(partStartT * pItem.speed);
+                                let shiftedT = adjustedT;
+                                if (pItem.pitch > 0) shiftedT = adjustedT >> pItem.pitch;
+                                else if (pItem.pitch < 0) shiftedT = adjustedT << Math.abs(pItem.pitch);
+
+                                let mainVal = pItem.func(shiftedT);
+                                let totalVal = Number(mainVal) || 0;
+
+                                if (pItem.bgFunc) {
+                                    let bgVal = pItem.bgFunc(shiftedT);
+                                    totalVal += Number(bgVal) || 0;
+                                }
+
+                                totalVal = Math.abs(Math.floor(totalVal)) & 255;
+
+                                if (pItem.glide) {
+                                    lastVal = lastVal + (totalVal - lastVal) * 0.18;
+                                    return lastVal;
+                                }
+
+                                return totalVal;
+                            }
+                        }
+                        return 128;
+                    };
+                }
+
+                if (errBox) errBox.classList.add('hidden');
+                if (statusText) {
+                    statusText.innerText = "公式正常";
+                    statusText.className = "text-emerald-400 font-medium";
+                }
+            } catch (err) {
+                if (errorMsg) errorMsg.innerText = "語法錯誤: " + err.message;
+                if (errBox) errBox.classList.remove('hidden');
+                if (statusText) {
+                    statusText.innerText = "公式錯誤";
+                    statusText.className = "text-rose-400 font-medium";
+                }
+            }
+        }
+
+        function updateVolume(val) {
+            volume = Number(val) / 100;
+            document.getElementById('volumeVal').innerText = val + '%';
+        }
+
+        function changeSampleRate(val) {
+            sampleRate = Number(val);
+            if (isPlaying) {
+                stopAudio();
+                startAudio();
+            }
+        }
+
+        function resetAudioTime() {
+            time = 0;
+        }
+
+        function togglePlay() {
+            if (isPlaying) {
+                stopAudio();
+            } else {
+                startAudio();
+            }
+        }
+
+        function startAudio() {
+            compileFormula();
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext({ sampleRate: sampleRate });
+
+            const bufferSize = 2048;
+            scriptNode = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+
+            scriptNode.onaudioprocess = function(e) {
+                const output = e.outputBuffer.getChannelData(0);
+                const waveData = [];
+                const useAGC = document.getElementById('agcToggle').checked;
+
+                for (let i = 0; i < output.length; i++) {
+                    let raw = 128;
+                    try {
+                        if (compiledFormula) {
+                            raw = compiledFormula(time);
+                        }
+                    } catch(err) {
+                        raw = 128;
+                    }
+
+                    // Dollchan 8-bit Bytebeat mapping: (val & 255) / 128 - 1
+                    let valNum = Number(raw) || 0;
+                    let sample = ((valNum & 255) - 128) / 128;
+
+                    if (useAGC) {
+                        sample = Math.max(-1, Math.min(1, sample));
+                    }
+
+                    sample *= volume;
+                    output[i] = sample;
+                    waveData.push(sample);
+                    time++;
+                }
+
+                document.getElementById('timeCounter').innerText = time;
+                document.getElementById('progressCounter').innerText = (time / sampleRate).toFixed(1) + 's';
+                drawVisualizer(waveData);
+            };
+
+            scriptNode.connect(audioCtx.destination);
+            isPlaying = true;
+
+            document.getElementById('playBtn').className = "px-5 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-rose-600/30 transition flex items-center space-x-2";
+            document.getElementById('playIcon').className = "fa-solid fa-stop text-xs";
+            document.getElementById('playText').innerText = "停止播放 (Stop)";
+        }
+
+        function stopAudio() {
+            if (scriptNode) {
+                scriptNode.disconnect();
+                scriptNode = null;
+            }
+            if (audioCtx) {
+                audioCtx.close();
+                audioCtx = null;
+            }
+            isPlaying = false;
+
+            document.getElementById('playBtn').className = "px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2";
+            document.getElementById('playIcon').className = "fa-solid fa-play text-xs";
+            document.getElementById('playText').innerText = "開始播放 (Play)";
+        }
+
+        function exportWav() {
+            compileFormula();
+            if (!compiledFormula) return;
+
+            const durationSec = 10;
+            const numSamples = sampleRate * durationSec;
+            const buffer = new Float32Array(numSamples);
+            
+            let tempTime = 0;
+            for (let i = 0; i < numSamples; i++) {
+                let raw = compiledFormula(tempTime);
+                let sample = (((raw & 255) - 128) / 128) * volume;
+                if (sample > 1) sample = 1;
+                if (sample < -1) sample = -1;
+                buffer[i] = sample;
+                tempTime++;
+            }
+
+            const wavData = encodeWAV(buffer, sampleRate);
+            const blob = new Blob([wavData], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gobeat-export.wav';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function encodeWAV(samples, sampleRate) {
+            const buffer = new ArrayBuffer(44 + samples.length * 2);
+            const view = new DataView(buffer);
+
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + samples.length * 2, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, samples.length * 2, true);
+
+            let offset = 44;
+            for (let i = 0; i < samples.length; i++, offset += 2) {
+                let s = Math.max(-1, Math.min(1, samples[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+
+            return buffer;
+        }
+
+        function drawVisualizer(waveData) {
+            canvasCtx.fillStyle = '#020617';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = '#818cf8';
+            canvasCtx.beginPath();
+
+            const sliceWidth = canvas.width / waveData.length;
+            let x = 0;
+
+            for (let i = 0; i < waveData.length; i++) {
+                const v = waveData[i];
+                const y = (v * 0.5 + 0.5) * canvas.height;
+
+                if (i === 0) {
+                    canvasCtx.moveTo(x, y);
+                } else {
+                    canvasCtx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+
+            canvasCtx.lineTo(canvas.width, canvas.height / 2);
+            canvasCtx.stroke();
+        }
+
+        renderGoBeatParts();
+        toggleMode('gobeat');
+    </script>
+</body>
+</html>
