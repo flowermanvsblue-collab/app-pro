@@ -1,5 +1,5 @@
 # app-pro
-haha 蛤
+重製 或至做app sh html等等
 
 
 app1.LinzinDeskClock但更輕了（未做）
